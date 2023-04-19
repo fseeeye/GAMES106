@@ -79,7 +79,7 @@ namespace vks
 	*
 	* @param typeBits Bit mask with bits set for each memory type supported by the resource to request for (from VkMemoryRequirements)
 	* @param properties Bit mask of properties for the memory type to request
-	* @param (Optional) memTypeFound Pointer to a bool that is set to true if a matching memory type has been found
+	* @param memTypeFound (Optional) Pointer to a bool that is set to true if a matching memory type has been found
 	* 
 	* @return Index of the requested memory type
 	*

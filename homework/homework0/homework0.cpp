@@ -1123,6 +1123,7 @@ public:
 	}
 };
 
+/* 平台相关的入口点和事件处理  */
 // OS specific macros for the example main entry points
 // Most of the code base is shared for the different supported operating systems, but stuff like message handling differs
 
@@ -1131,7 +1132,7 @@ public:
 VulkanExample *vulkanExample;
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	if (vulkanExample != NULL)
+	if (vulkanExample != nullptr)
 	{
 		vulkanExample->handleMessages(hWnd, uMsg, wParam, lParam);
 	}
@@ -1139,12 +1140,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {
-	for (size_t i = 0; i < __argc; i++) { VulkanExample::args.push_back(__argv[i]); };
+	for (size_t i = 0; i < __argc; i++) { VulkanExample::args.push_back(__argv[i]); }
 	vulkanExample = new VulkanExample();
+	// 1. Vulkan 初始化: Vulkan 对象和窗口
 	vulkanExample->initVulkan();
 	vulkanExample->setupWindow(hInstance, WndProc);
+	// 2. Vulkan 主循环
 	vulkanExample->prepare();
 	vulkanExample->renderLoop();
+	// 3. Vulkan 销毁
 	delete(vulkanExample);
 	return 0;
 }
