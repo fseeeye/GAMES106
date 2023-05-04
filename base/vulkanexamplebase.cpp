@@ -16,7 +16,7 @@
 
 std::vector<const char*> VulkanExampleBase::args;
 
-/* ´´½¨ Vulkan Instance */
+/* åˆ›å»º Vulkan Instance */
 VkResult VulkanExampleBase::createInstance(bool enableValidation)
 {
 	this->settings.validation = enableValidation;
@@ -960,7 +960,7 @@ bool VulkanExampleBase::initVulkan()
 {
 	VkResult err;
 
-	/* 1. ´´½¨ Vulkan Instance */
+	/* 1. åˆ›å»º Vulkan Instance */
 	// Vulkan instance
 	err = createInstance(settings.validation);
 	if (err) {
@@ -978,7 +978,7 @@ bool VulkanExampleBase::initVulkan()
 		vks::debug::setupDebugging(instance);
 	}
 
-	/* 2. ´´½¨ Vulkan Physical Device */
+	/* 2. åˆ›å»º Vulkan Physical Device */
 	// Physical device
 	uint32_t gpuCount = 0;
 	// Get number of available physical devices
@@ -1033,7 +1033,7 @@ bool VulkanExampleBase::initVulkan()
 	// Derived examples can override this to set actual features (based on above readings) to enable for logical device creation
 	getEnabledFeatures();
 
-	/* 3. ´´½¨ Vulkan Lgoical Device ºÍ Vulkan Queue */
+	/* 3. åˆ›å»º Vulkan Lgoical Device å’Œ Vulkan Queue */
 	// Vulkan device creation
 	// This is handled by a separate class that gets a logical device representation
 	// and encapsulates functions related to a device
