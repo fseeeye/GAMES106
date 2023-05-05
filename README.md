@@ -66,3 +66,13 @@ float3 Tonemap_ACES(const float3 c) {
   - PBR材质 
     - 直接光照 examples/pbrbasic/pbrbasic.cpp 
     - 环境光照 examples/pbribl/pbribl.cpp
+### homework4
+扩展 examples/variablerateshading 中的示例，使得shadingrate 可以根据经制结果本身得频率动态调整，从而在不影响整体绘制质量的前提下，减少着色率。
+可以開读并参考
+"Visually Lossless Content and Motion
+Adaptive Shading in Games"
+中的描达路元成
+1. Content Adaptive Variable Shading Rate
+2. Motion Adaptive Variable Shading Rate
+reference论文在：reference/Visually Lossless Comtent and
+Motion Adaptive Shading in Games.pdf
