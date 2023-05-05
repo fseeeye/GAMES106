@@ -74,5 +74,5 @@ Adaptive Shading in Games"
 中的描达路元成
 1. Content Adaptive Variable Shading Rate
 2. Motion Adaptive Variable Shading Rate
-reference论文在：reference/Visually Lossless Comtent and
+reference论文在：data/Visually Lossless Comtent and
 Motion Adaptive Shading in Games.pdf
