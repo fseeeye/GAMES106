@@ -2725,6 +2725,9 @@ void VulkanExampleBase::setupDepthStencil()
 	VK_CHECK_RESULT(vkCreateImageView(device, &imageViewCI, nullptr, &depthStencil.view));
 }
 
+/**
+ * \brief 配置 Framebuffer 的通用代码
+ */
 void VulkanExampleBase::setupFrameBuffer()
 {
 	VkImageView attachments[2];
@@ -2751,6 +2754,11 @@ void VulkanExampleBase::setupFrameBuffer()
 	}
 }
 
+/**
+ * \brief 配置 Render Pass 的通用代码
+ *
+ * 该通用代码中，创建了一个 subpass，并为其配置了一个 Color Attachment（作为送显的Buffer） 和一个 Depth Attachment。
+ */
 void VulkanExampleBase::setupRenderPass()
 {
 	std::array<VkAttachmentDescription, 2> attachments = {};

@@ -1123,7 +1123,7 @@ public:
 	}
 };
 
-/* Æ½Ì¨Ïà¹ØµÄÈë¿ÚµãºÍÊÂ¼ş´¦Àí  */
+/* å¹³å°ç›¸å…³çš„å…¥å£ç‚¹å’Œäº‹ä»¶å¤„ç†  */
 // OS specific macros for the example main entry points
 // Most of the code base is shared for the different supported operating systems, but stuff like message handling differs
 
@@ -1142,13 +1142,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLin
 {
 	for (size_t i = 0; i < __argc; i++) { VulkanExample::args.push_back(__argv[i]); }
 	vulkanExample = new VulkanExample();
-	// 1. Vulkan ³õÊ¼»¯: Vulkan ¶ÔÏóºÍ´°¿Ú
+	// 1. Vulkan åˆå§‹åŒ–: Vulkan å¯¹è±¡å’Œçª—å£
 	vulkanExample->initVulkan();
 	vulkanExample->setupWindow(hInstance, WndProc);
-	// 2. Vulkan Ö÷Ñ­»·
 	vulkanExample->prepare();
+	// 2. Vulkan ä¸»å¾ªç¯
 	vulkanExample->renderLoop();
-	// 3. Vulkan Ïú»Ù
+	// 3. Vulkan é”€æ¯
 	delete(vulkanExample);
 	return 0;
 }
