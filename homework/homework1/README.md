@@ -1,13 +1,13 @@
-# GAMES 106 - ×÷Òµ1
+# GAMES 106 - ä½œä¸š1
 
-## ×÷ÒµÒªÇó
+## ä½œä¸šè¦æ±‚
 
-- Ö§³ÖgltfµÄ¹Ç÷À¶¯»­¡£
-- Ö§³ÖgltfµÄPBRµÄ²ÄÖÊ£¬°üÀ¨·¨ÏßÌùÍ¼¡£
-- ½ø½××÷Òµ£º
-    - Ôö¼ÓÒ»¸öTone MappingµÄºó´¦Àí Render Pass¡£tonemapÑ¡ÔñACESÊµÏÖÈçÏÂ:
+- æ”¯æŒgltfçš„éª¨éª¼åŠ¨ç”»ã€‚
+- æ”¯æŒgltfçš„PBRçš„æè´¨ï¼ŒåŒ…æ‹¬æ³•çº¿è´´å›¾ã€‚
+- è¿›é˜¶ä½œä¸šï¼š
+    - å¢åŠ ä¸€ä¸ªTone Mappingçš„åå¤„ç† Render Passã€‚tonemapé€‰æ‹©ACESå®ç°å¦‚ä¸‹:
         ``` C++
-        // tonemap ËùÊ¹ÓÃµÄº¯Êı
+        // tonemap æ‰€ä½¿ç”¨çš„å‡½æ•°
         float3 Tonemap_ACES(const float3 c) {
             // Narkowicz 2015, "ACES Filmic Tone Mapping Curve"
             // const float a = 2.51;
@@ -23,12 +23,19 @@
 	        return a / b;
         }
         ```
-    - Ôö¼ÓGLTFµÄÂË¾µ¹¦ÄÜ¡£
+    - å¢åŠ GLTFçš„æ»¤é•œåŠŸèƒ½ã€‚
+
+## è¯´æ˜
+
+- ç¼–è¯‘ HLSL shaderï¼š
+    - Fragment Shader : `dxc -E main <path\to\shader> -T ps_6_0 -spirv -Fo <path\to\spirv\output>`
+    - Vertex Shader : `dxc -E main <path\to\shader> -T vs_6_0 -spirv -Fo <path\to\spirv\output>`
+- ç¼–è¯‘ GLSL shader: `glslangValidator -V <path\to\shader> -o <path\to\spirv\output>`
 
 ## Ref
 
-- GTLF ÎÄµµ: https://github.com/KhronosGroup/glTF
-- ¹Ç÷À¶¯»­Ê¾Àı£º[examples/gltfskinning/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/gltfskinning)
-- PBR ²ÄÖÊÊ¾Àı
-    - Ö±½Ó¹âÕÕ: [examples/pbrbasic/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbrbasic)
-    - »·¾³¹âÕÕ: [examples/pbribl/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbribl)
+- GTLF æ–‡æ¡£: https://github.com/KhronosGroup/glTF
+- éª¨éª¼åŠ¨ç”»ç¤ºä¾‹ï¼š[examples/gltfskinning/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/gltfskinning)
+- PBR æè´¨ç¤ºä¾‹
+    - ç›´æ¥å…‰ç…§: [examples/pbrbasic/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbrbasic)
+    - ç¯å¢ƒå…‰ç…§: [examples/pbribl/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbribl)

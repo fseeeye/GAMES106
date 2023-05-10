@@ -91,6 +91,8 @@ private:
 	void setupSwapChain();
 	void createCommandBuffers();
 	void destroyCommandBuffers();
+
+	// 指定 Shader 目录，"glsl" 或者 "hlsl"
 	std::string shaderDir = "glsl";
 protected:
 	// Returns the path to the root of the glsl or hlsl shader directory.
@@ -136,7 +138,7 @@ protected:
 	// Global render pass for frame buffer writes
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	// List of available frame buffers (same as number of swap chain images)
-	std::vector<VkFramebuffer>frameBuffers;
+	std::vector<VkFramebuffer> frameBuffers;
 	// Active frame buffer index
 	uint32_t currentBuffer = 0;
 	// Descriptor set pool
@@ -400,7 +402,7 @@ public:
 
 // OS specific macros for the example main entry points
 #if defined(_WIN32)
-// Windows entry point
+// Windows 入口点
 #define VULKAN_EXAMPLE_MAIN()																		\
 VulkanExample *vulkanExample;																		\
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)						\
