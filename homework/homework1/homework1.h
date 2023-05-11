@@ -70,11 +70,9 @@ public:
 	struct Mesh
 	{
 		std::vector<Primitive> primitives;
-		/* HOMEWORK1 : ´«µİ glTF Node uniform vars */
+		/* HOMEWORK1 : ä¼ é€’ glTF Node uniform vars */
 		struct UniformBuffer {
-			VkBuffer buffer;
-			VkDeviceMemory memory;
-			VkDescriptorBufferInfo descriptor;
+			vks::Buffer buffer;
 			VkDescriptorSet descriptorSet;
 			void* mapped;
 		} uniformBuffer;
@@ -87,7 +85,7 @@ public:
 		std::vector<Node*> children;
 		Mesh mesh;
 
-		/* HOMEWORK1 : ÔØÈë GLTF ÔØÈë¶¯»­Êı¾İ */
+		/* HOMEWORK1 : è½½å…¥ GLTF è½½å…¥åŠ¨ç”»æ•°æ® */
 		uint32_t index; 
 		glm::vec3 translation{};
 		glm::vec3 scale{ 1.0f };
@@ -162,7 +160,7 @@ public:
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
 	std::vector<Node*> nodes;
-	/* HOMEWORK1 : ÔØÈë GLTF ÔØÈë¹Ç÷ÀºÍ¶¯»­Êı¾İ */
+	/* HOMEWORK1 : è½½å…¥ GLTF è½½å…¥éª¨éª¼å’ŒåŠ¨ç”»æ•°æ® */
 	std::vector<Animation> animations;
 
 	uint32_t activeAnimation = 0;
@@ -178,7 +176,7 @@ public:
 	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent,
 	              std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
 
-	/* HOMEWORK1 : ÔØÈë GLTF ÔØÈë¹Ç÷ÀºÍ¶¯»­Êı¾İ */
+	/* HOMEWORK1 : è½½å…¥ GLTF è½½å…¥éª¨éª¼å’ŒåŠ¨ç”»æ•°æ® */
 
 	void loadAnimations(tinygltf::Model& input);
 
@@ -219,7 +217,7 @@ public:
 	struct DescriptorSetLayouts {
 		VkDescriptorSetLayout matrices;
 		VkDescriptorSetLayout textures;
-		/* HOMEWORK1 : ´«µİ glTF Node uniform vars */
+		/* HOMEWORK1 : ä¼ é€’ glTF Node uniform vars */
 		VkDescriptorSetLayout nodes;
 	} descriptorSetLayouts;
 
@@ -235,13 +233,14 @@ public:
 	void loadAssets();
 	void prepareUniformBuffers();
 	void setupDescriptors();
+	void setupNodeDescriptorSet(VulkanglTFModel::Node* node);
+	void updateUniformBuffers();
 	void preparePipelines();
 	/**
 	 * @brief Prepares all Vulkan resources and functions required to run the sample
 	 */
 	virtual void prepare() override;
 
-	void updateUniformBuffers();
 	/**
 	 * @brief (Pure virtual) Render function to be implemented by the sample application
 	 */

@@ -385,6 +385,9 @@ glm::mat4 VulkanglTFModel::getNodeMatrix(VulkanglTFModel::Node* node)
 void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
 	VulkanglTFModel::Node* node)
 {
+	/* HOMEWORK1 : 传递 glTF Node uniform */
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &node->mesh.uniformBuffer.descriptorSet, 0, nullptr);
+
 	if (node->mesh.primitives.size() > 0) {
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
@@ -406,6 +409,7 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 			}
 		}
 	}
+
 	for (auto& child : node->children) {
 		drawNode(commandBuffer, pipelineLayout, child);
 	}
@@ -487,14 +491,18 @@ void VulkanExample::buildCommandBuffers()
 	{
 		renderPassBeginInfo.framebuffer = frameBuffers[i];
 		VK_CHECK_RESULT(vkBeginCommandBuffer(drawCmdBuffers[i], &cmdBufInfo));
+
 		vkCmdBeginRenderPass(drawCmdBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdSetViewport(drawCmdBuffers[i], 0, 1, &viewport);
 		vkCmdSetScissor(drawCmdBuffers[i], 0, 1, &scissor);
 		// Bind scene matrices descriptor to set 0
 		vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 		vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, wireframe ? pipelines.wireframe : pipelines.solid);
+
 		glTFModel.draw(drawCmdBuffers[i], pipelineLayout);
+
 		drawUI(drawCmdBuffers[i]);
+
 		vkCmdEndRenderPass(drawCmdBuffers[i]);
 		VK_CHECK_RESULT(vkEndCommandBuffer(drawCmdBuffers[i]));
 	}
@@ -542,7 +550,6 @@ void VulkanExample::loadglTFFile(std::string filename)
 		}
 		/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
 		glTFModel.loadAnimations(glTFInput);
-		// TODO: update matrix uniform
 	}
 	else {
 		vks::tools::exitFatal("Could not open the glTF file.\n\nThe file is part of the additional asset pack.\n\nRun \"download_assets.py\" in the repository root to download the latest version.", -1);
@@ -642,7 +649,6 @@ void VulkanExample::setupDescriptors()
 	const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size()) + 1;
 	VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, maxSetCount);
 	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
-
 	
 	{
 		// Descriptor set 0 layout : passing matrices
@@ -684,14 +690,7 @@ void VulkanExample::setupDescriptors()
 		// Descriptor Sets for glTF Node data
 		for (auto& node : glTFModel.nodes)
 		{
-			if (!node->mesh.primitives.empty())
-			{
-				const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodes, 1);
-				VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->mesh.uniformBuffer.descriptorSet))
-				// TODO: add descriptor data
-				VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->mesh.uniformBuffer.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &node->mesh.uniformBuffer.descriptor);
-				vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-			}
+			setupNodeDescriptorSet(node);
 		}
 	}
 
@@ -707,6 +706,70 @@ void VulkanExample::setupDescriptors()
 	pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
 
 	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout))
+}
+
+void VulkanExample::setupNodeDescriptorSet(VulkanglTFModel::Node* node)
+{
+	if (!node->mesh.primitives.empty())
+	{
+		const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodes, 1);
+		// TODO: fixme
+		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->mesh.uniformBuffer.descriptorSet));
+		VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->mesh.uniformBuffer.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &node->mesh.uniformBuffer.buffer.descriptor);
+		vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+	}
+
+	for (auto& child : node->children) {
+		setupNodeDescriptorSet(child);
+	}
+}
+
+/**
+ * @brief Prepare and initialize uniform buffer containing shader uniforms
+ */
+void VulkanExample::prepareUniformBuffers()
+{
+	// Vertex shader uniform buffer block for Descriptor set 0
+	VK_CHECK_RESULT(vulkanDevice->createBuffer(
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		&shaderData.buffer,
+		sizeof(shaderData.values)));
+
+	// Map persistent
+	VK_CHECK_RESULT(shaderData.buffer.map());
+
+	/* HOMEWORK1 : 传递 glTF Node uniform */
+	// Vertex shader uniform buffer block for Descriptor set 2
+	// TODO: traverse all nodes
+	for (auto& node : glTFModel.nodes)
+	{
+		VK_CHECK_RESULT(vulkanDevice->createBuffer(
+			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			&node->mesh.uniformBuffer.buffer,
+			sizeof(node->matrix)));
+
+		// Map persistent
+		VK_CHECK_RESULT(node->mesh.uniformBuffer.buffer.map());
+	}
+
+	updateUniformBuffers();
+}
+
+void VulkanExample::updateUniformBuffers()
+{
+	shaderData.values.projection = camera.matrices.perspective;
+	shaderData.values.model = camera.matrices.view;
+	shaderData.values.viewPos = camera.viewPos;
+	memcpy(shaderData.buffer.mapped, &shaderData.values, sizeof(shaderData.values));
+
+	/* HOMEWORK1 : 传递 glTF Node uniform */
+	// TODO: traverse all nodes
+	for (const auto& node : glTFModel.nodes)
+	{
+		memcpy(node->mesh.uniformBuffer.buffer.mapped, static_cast<const void*>(&node->matrix), sizeof(node->matrix));
+	}
 }
 
 void VulkanExample::preparePipelines()
@@ -768,24 +831,6 @@ void VulkanExample::preparePipelines()
 	}
 }
 
-/**
- * @brief Prepare and initialize uniform buffer containing shader uniforms
- */
-void VulkanExample::prepareUniformBuffers()
-{
-	// Vertex shader uniform buffer block
-	VK_CHECK_RESULT(vulkanDevice->createBuffer(
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		&shaderData.buffer,
-		sizeof(shaderData.values)));
-
-	// Map persistent
-	VK_CHECK_RESULT(shaderData.buffer.map());
-
-	updateUniformBuffers();
-}
-
 void VulkanExample::prepare()
 {
 	VulkanExampleBase::prepare();
@@ -795,14 +840,6 @@ void VulkanExample::prepare()
 	preparePipelines();
 	buildCommandBuffers();
 	prepared = true;
-}
-
-void VulkanExample::updateUniformBuffers()
-{
-	shaderData.values.projection = camera.matrices.perspective;
-	shaderData.values.model = camera.matrices.view;
-	shaderData.values.viewPos = camera.viewPos;
-	memcpy(shaderData.buffer.mapped, &shaderData.values, sizeof(shaderData.values));
 }
 
 void VulkanExample::render()
