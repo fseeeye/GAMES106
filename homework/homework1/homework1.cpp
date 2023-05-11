@@ -1,20 +1,7 @@
 /*
-* Vulkan Example - glTF scene loading and rendering
-*
-* Copyright (C) 2020-2022 by Sascha Willems - www.saschawillems.de
-*
-* This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
-*/
-
-/*
- * Shows how to load and display a simple scene from a glTF file
- * Note that this isn't a complete glTF loader and only basic functions are shown here
- * This means no complex materials, no animations, no skins, etc.
- * For details on how glTF 2.0 works, see the official spec at https://github.com/KhronosGroup/glTF/tree/master/specification/2.0
+ * Copyright (C) 2020-2022 by Sascha Willems - www.saschawillems.de
  *
- * Other samples will load models using a dedicated model loader with more features (see base/VulkanglTFModel.hpp)
- *
- * If you are looking for a complete glTF implementation, check out https://github.com/SaschaWillems/Vulkan-glTF-PBR/
+ * This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
  */
 
 #include "homework1.h"
@@ -601,7 +588,7 @@ void VulkanExample::preparePipelines()
 }
 
 /**
- * \brief Prepare and initialize uniform buffer containing shader uniforms
+ * @brief Prepare and initialize uniform buffer containing shader uniforms
  */
 void VulkanExample::prepareUniformBuffers()
 {
