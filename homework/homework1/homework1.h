@@ -32,7 +32,8 @@ public:
 	*/
 
 	// The vertex layout for the samples' model
-	struct Vertex {
+	struct Vertex
+	{
 		glm::vec3 pos;
 		glm::vec3 normal;
 		glm::vec2 uv;
@@ -40,13 +41,15 @@ public:
 	};
 
 	// Single vertex buffer for all primitives
-	struct {
+	struct
+	{
 		VkBuffer buffer;
 		VkDeviceMemory memory;
 	} vertices;
 
 	// Single index buffer for all primitives
-	struct {
+	struct
+	{
 		int count;
 		VkBuffer buffer;
 		VkDeviceMemory memory;
@@ -56,39 +59,54 @@ public:
 	// To keep things simple, they only contain those properties that are required for this sample
 
 	// A primitive contains the data for a single draw call
-	struct Primitive {
+	struct Primitive
+	{
 		uint32_t firstIndex;
 		uint32_t indexCount;
 		int32_t materialIndex;
 	};
 
 	// Contains the node's (optional) geometry and can be made up of an arbitrary number of primitives
-	struct Mesh {
+	struct Mesh
+	{
 		std::vector<Primitive> primitives;
 	};
 
 	// A node represents an object in the glTF scene graph
-	struct Node {
+	struct Node
+	{
 		Node* parent;
 		std::vector<Node*> children;
 		Mesh mesh;
+
+		/* HOMEWORK1 : 载入 GLTF 载入蒙皮和动画数据 */
+		uint32_t index; 
+		glm::vec3 translation{};
+		glm::vec3 scale{ 1.0f };
+		glm::quat rotation{};
 		glm::mat4 matrix;
-		~Node() {
-			for (auto& child : children) {
+		glm::mat4 getLocalMatrix();
+
+		~Node()
+		{
+			for (auto& child : children)
+			{
 				delete child;
 			}
 		}
 	};
 
 	// A glTF material stores information in e.g. the texture that is attached to it and colors
-	struct Material {
+	struct Material
+	{
 		glm::vec4 baseColorFactor = glm::vec4(1.0f);
 		uint32_t baseColorTextureIndex;
 	};
 
 	// Contains the texture for a single glTF image
 	// Images may be reused by texture objects and are as such separated
-	struct Image {
+	struct Image
+	{
 		vks::Texture2D texture;
 		// We also store (and create) a descriptor set that's used to access this texture from the fragment shader
 		VkDescriptorSet descriptorSet;
@@ -96,22 +114,9 @@ public:
 
 	// A glTF texture stores a reference to the image and a sampler
 	// In this sample, we are only interested in the image
-	struct Texture {
-		int32_t imageIndex;
-	};
-
-	/*
-		Skin structure
-	*/
-
-	struct Skin
+	struct Texture
 	{
-		std::string            name;
-		Node* skeletonRoot = nullptr;
-		std::vector<glm::mat4> inverseBindMatrices;
-		std::vector<Node*>    joints;
-		vks::Buffer            ssbo;
-		VkDescriptorSet        descriptorSet;
+		int32_t imageIndex;
 	};
 
 	/*
@@ -120,8 +125,8 @@ public:
 
 	struct AnimationSampler
 	{
-		std::string            interpolation;
-		std::vector<float>     inputs;
+		std::string interpolation;
+		std::vector<float> inputs;
 		std::vector<glm::vec4> outputsVec4;
 	};
 
@@ -129,17 +134,17 @@ public:
 	{
 		std::string path;
 		Node* node;
-		uint32_t    samplerIndex;
+		uint32_t samplerIndex;
 	};
 
 	struct Animation
 	{
-		std::string                   name;
+		std::string name;
 		std::vector<AnimationSampler> samplers;
 		std::vector<AnimationChannel> channels;
-		float                         start = std::numeric_limits<float>::max();
-		float                         end = std::numeric_limits<float>::min();
-		float                         currentTime = 0.0f;
+		float start = std::numeric_limits<float>::max();
+		float end = std::numeric_limits<float>::min();
+		float currentTime = 0.0f;
 	};
 
 	/*
@@ -149,17 +154,29 @@ public:
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
 	std::vector<Node*> nodes;
+	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
+	std::vector<Animation> animations;
 
 	uint32_t activeAnimation = 0;
 
 public:
 	~VulkanglTFModel();
 
+	// glTF loading functions
+
 	void loadImages(tinygltf::Model& input);
 	void loadTextures(tinygltf::Model& input);
 	void loadMaterials(tinygltf::Model& input);
-	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
+	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent,
+	              std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
+
+	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
 	
+	void loadAnimations(tinygltf::Model& input);
+	Node* findNode(Node* parent, uint32_t index);
+	Node* nodeFromIndex(uint32_t index);
+	glm::mat4 getNodeMatrix(VulkanglTFModel::Node* node);
+
 	void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VulkanglTFModel::Node* node);
 	void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
 };

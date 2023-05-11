@@ -234,6 +234,149 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 	}
 }
 
+void VulkanglTFModel::loadAnimations(tinygltf::Model& input)
+{
+	animations.resize(input.animations.size());
+
+	for (size_t i = 0; i < input.animations.size(); i++)
+	{
+		tinygltf::Animation glTFAnimation = input.animations[i];
+		animations[i].name = glTFAnimation.name;
+
+		// Samplers
+		animations[i].samplers.resize(glTFAnimation.samplers.size());
+		for (size_t j = 0; j < glTFAnimation.samplers.size(); j++)
+		{
+			tinygltf::AnimationSampler glTFSampler = glTFAnimation.samplers[j];
+			AnimationSampler& dstSampler = animations[i].samplers[j];
+			dstSampler.interpolation = glTFSampler.interpolation;
+
+			// Read sampler keyframe input time values
+			{
+				const tinygltf::Accessor& accessor = input.accessors[glTFSampler.input];
+				const tinygltf::BufferView& bufferView = input.bufferViews[accessor.bufferView];
+				const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
+				const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
+				const float* buf = static_cast<const float*>(dataPtr);
+				for (size_t index = 0; index < accessor.count; index++)
+				{
+					dstSampler.inputs.push_back(buf[index]);
+				}
+				// Adjust animation's start and end times
+				for (auto input : animations[i].samplers[j].inputs)
+				{
+					if (input < animations[i].start)
+					{
+						animations[i].start = input;
+					};
+					if (input > animations[i].end)
+					{
+						animations[i].end = input;
+					}
+				}
+			}
+
+			// Read sampler keyframe output translate/rotate/scale values
+			{
+				const tinygltf::Accessor& accessor = input.accessors[glTFSampler.output];
+				const tinygltf::BufferView& bufferView = input.bufferViews[accessor.bufferView];
+				const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
+				const void* dataPtr = &buffer.data[accessor.byteOffset + bufferView.byteOffset];
+				switch (accessor.type)
+				{
+				case TINYGLTF_TYPE_VEC3: {
+					const glm::vec3* buf = static_cast<const glm::vec3*>(dataPtr);
+					for (size_t index = 0; index < accessor.count; index++)
+					{
+						dstSampler.outputsVec4.push_back(glm::vec4(buf[index], 0.0f));
+					}
+					break;
+				}
+				case TINYGLTF_TYPE_VEC4: {
+					const glm::vec4* buf = static_cast<const glm::vec4*>(dataPtr);
+					for (size_t index = 0; index < accessor.count; index++)
+					{
+						dstSampler.outputsVec4.push_back(buf[index]);
+					}
+					break;
+				}
+				default: {
+					std::cout << "unknown type" << std::endl;
+					break;
+				}
+				}
+			}
+		}
+
+		// Channels
+		animations[i].channels.resize(glTFAnimation.channels.size());
+		for (size_t j = 0; j < glTFAnimation.channels.size(); j++)
+		{
+			tinygltf::AnimationChannel glTFChannel = glTFAnimation.channels[j];
+			AnimationChannel& dstChannel = animations[i].channels[j];
+			dstChannel.path = glTFChannel.target_path;
+			dstChannel.samplerIndex = glTFChannel.sampler;
+			dstChannel.node = nodeFromIndex(glTFChannel.target_node);
+		}
+	}
+}
+
+// Helper functions for locating glTF nodes
+
+VulkanglTFModel::Node* VulkanglTFModel::findNode(Node* parent, uint32_t index)
+{
+	Node* nodeFound = nullptr;
+	if (parent->index == index)
+	{
+		return parent;
+	}
+	for (auto& child : parent->children)
+	{
+		nodeFound = findNode(child, index);
+		if (nodeFound)
+		{
+			break;
+		}
+	}
+	return nodeFound;
+}
+
+VulkanglTFModel::Node* VulkanglTFModel::nodeFromIndex(uint32_t index)
+{
+	Node* nodeFound = nullptr;
+	for (auto& node : nodes)
+	{
+		nodeFound = findNode(node, index);
+		if (nodeFound)
+		{
+			break;
+		}
+	}
+	return nodeFound;
+}
+
+/*
+	 Get a node's local matrix from the current translation, rotation and scale values
+	 These are calculated from the current animation an need to be calculated dynamically
+ */
+glm::mat4 VulkanglTFModel::Node::getLocalMatrix()
+{
+	return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
+}
+
+// Traverse the node hierarchy to the top-most parent to get the local matrix of the given node
+glm::mat4 VulkanglTFModel::getNodeMatrix(VulkanglTFModel::Node* node)
+{
+	glm::mat4              nodeMatrix = node->getLocalMatrix();
+	VulkanglTFModel::Node* currentParent = node->parent;
+	while (currentParent)
+	{
+		nodeMatrix = currentParent->getLocalMatrix() * nodeMatrix;
+		currentParent = currentParent->parent;
+	}
+	return nodeMatrix;
+}
+
 /*
 	glTF: rendering functions
 */
@@ -397,6 +540,9 @@ void VulkanExample::loadglTFFile(std::string filename)
 			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
 			glTFModel.loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
 		}
+		/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
+		glTFModel.loadAnimations(glTFInput);
+		// TODO: update matrix uniform
 	}
 	else {
 		vks::tools::exitFatal("Could not open the glTF file.\n\nThe file is part of the additional asset pack.\n\nRun \"download_assets.py\" in the repository root to download the latest version.", -1);
@@ -484,8 +630,8 @@ void VulkanExample::loadAssets()
 void VulkanExample::setupDescriptors()
 {
 	/*
-			This sample uses separate descriptor sets (and layouts) for the matrices and materials (textures)
-		*/
+		This sample uses separate descriptor sets (and layouts) for the matrices and materials (textures)
+	*/
 
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),

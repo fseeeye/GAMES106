@@ -33,8 +33,9 @@
 ## TODO List
 
 - [ ] 载入 GLTF 缺失的数据。
-	- [ ] 载入骨骼和动画数据。
-	- [ ] 读取纹理贴图(Texture mapping)：法线、字符光、PBR。
+	- [ ] 载入动画数据。
+	- [ ] 读取纹理贴图(Texture mapping)：法线、自发光、PBR。
+	- [ ] 更新 Uniform Buffer。
 - [ ] 补充 GLTF Render Pass。
 	- [ ] Vertex Shader 中支持骨骼动画计算。
 	- [ ] Fragment Shader 实现 PBR 的直接光照和间接光照。
@@ -54,3 +55,4 @@
 - PBR 材质示例
 	- 直接光照: [examples/pbrbasic/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbrbasic)
 	- 环境光照: [examples/pbribl/](https://github.com/SaschaWillems/Vulkan/tree/master/examples/pbribl)
+- GLTF + PBR 示例：[Vulkan-glTF-PBR](https://github.com/SaschaWillems/Vulkan-glTF-PBR)
