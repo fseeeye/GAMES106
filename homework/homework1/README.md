@@ -27,15 +27,16 @@
 	- 增加GLTF的滤镜功能。
 
 作业初始状态：
-- 只是读取了 GLTF 文件，但是是静态的，并没有读取骨骼动画。
-- BRDF 实现存在问题，仅将颜色作为材质且仅有一个方向光，没有实现 PBR 材质。
+- 读取了 GLTF 文件，但是模型是静态的，因为没有读取骨骼动画。
+- BRDF 实现存在问题，仅将颜色纹理作为材质 + 仅一个方向光，没有实现 PBR 材质。
 
 ## TODO List
 
 - [ ] 载入 GLTF 缺失的数据。
-	- [ ] 载入动画数据。
+	- [X] 载入动画数据。
 	- [ ] 读取纹理贴图(Texture mapping)：法线、自发光、PBR。
-	- [ ] 更新 Uniform Buffer。
+	- [ ] 更新数据至 mesh Uniform Buffer & Texture Sampler，并创建 Descriptor Set Layout & Descriptor Set
+	- [ ] 渲染过程中绑定 Descriptor Set。
 - [ ] 补充 GLTF Render Pass。
 	- [ ] Vertex Shader 中支持骨骼动画计算。
 	- [ ] Fragment Shader 实现 PBR 的直接光照和间接光照。

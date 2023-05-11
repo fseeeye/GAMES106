@@ -70,6 +70,14 @@ public:
 	struct Mesh
 	{
 		std::vector<Primitive> primitives;
+		/* HOMEWORK1 : 传递 glTF Node uniform vars */
+		struct UniformBuffer {
+			VkBuffer buffer;
+			VkDeviceMemory memory;
+			VkDescriptorBufferInfo descriptor;
+			VkDescriptorSet descriptorSet;
+			void* mapped;
+		} uniformBuffer;
 	};
 
 	// A node represents an object in the glTF scene graph
@@ -79,7 +87,7 @@ public:
 		std::vector<Node*> children;
 		Mesh mesh;
 
-		/* HOMEWORK1 : 载入 GLTF 载入蒙皮和动画数据 */
+		/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
 		uint32_t index; 
 		glm::vec3 translation{};
 		glm::vec3 scale{ 1.0f };
@@ -171,8 +179,9 @@ public:
 	              std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
 
 	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
-	
+
 	void loadAnimations(tinygltf::Model& input);
+
 	Node* findNode(Node* parent, uint32_t index);
 	Node* nodeFromIndex(uint32_t index);
 	glm::mat4 getNodeMatrix(VulkanglTFModel::Node* node);
@@ -210,6 +219,8 @@ public:
 	struct DescriptorSetLayouts {
 		VkDescriptorSetLayout matrices;
 		VkDescriptorSetLayout textures;
+		/* HOMEWORK1 : 传递 glTF Node uniform vars */
+		VkDescriptorSetLayout nodes;
 	} descriptorSetLayouts;
 
 public:
