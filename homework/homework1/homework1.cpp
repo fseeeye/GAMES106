@@ -755,12 +755,12 @@ void VulkanExample::setupDescriptors()
 	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 	
 	{
-		// Descriptor set 0 layout : passing matrices
+		// Descriptor set 0 layout : passing scene matrices
 		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.matrices));
 
-		// Setup Descriptor Set for scene matrices
+		// Setup Descriptor Set : scene matrices
 		VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.matrices, 1);
 		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet));
 		VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &shaderData.buffer.descriptor);
@@ -774,7 +774,7 @@ void VulkanExample::setupDescriptors()
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.textures));
 
-		// Descriptor Sets for materials
+		// Descriptor Sets : material textures
 		for (auto& image : glTFModel.images) {
 			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.textures, 1);
 			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &image.descriptorSet))
@@ -785,13 +785,13 @@ void VulkanExample::setupDescriptors()
 
 	/* HOMEWORK1 : 传递 glTF Node uniform */
 	{
-		// Descriptor set 2 layout : passing glTF Node data
+		// Descriptor set 2 layout : passing mesh data of glTF Node 
 		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.nodes))
 
-		// Descriptor Sets for glTF Node data
+		// Descriptor Sets : mesh data of glTF Node 
 		for (auto& meshNode : glTFModel.linearMeshNodes)
 		{
 			if (!meshNode->mesh.primitives.empty())
@@ -929,7 +929,7 @@ void VulkanExample::render()
 	if (camera.updated) {
 		updateUniformBuffers();
 	}
-	/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
+	/* HOMEWORK1 :更新动画数据 */
 	// Advance animation
 	if (!paused)
 	{

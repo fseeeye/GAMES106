@@ -32,13 +32,14 @@
 
 ## TODO List
 
-- [ ] 载入 GLTF 缺失的数据。
-	- [X] 载入动画数据。
+- [X] 骨骼动画。
+	- [X] 载入缺失的动画数据。
+	- [X] 准备 node->mesh 的 Uniform Buffer，并为其创建 Descriptor Set Layout & Descriptor Set。
+	- [X] 渲染过程中绑定 Descriptor Set 至 Command Buffer。
+	- [X] 逐帧更新动画顶点数据至 node->mesh 的 Uniform Buffer。
+	- [X] Vertex Shader 中读取并计算顶点位置。
+- [ ] PBR
 	- [ ] 读取纹理贴图(Texture mapping)：法线、自发光、PBR。
-	- [ ] 更新数据至 mesh Uniform Buffer & Texture Sampler，并创建 Descriptor Set Layout & Descriptor Set
-	- [ ] 渲染过程中绑定 Descriptor Set。
-- [ ] 补充 GLTF Render Pass。
-	- [ ] Vertex Shader 中支持骨骼动画计算。
 	- [ ] Fragment Shader 实现 PBR 的直接光照和间接光照。
 - [ ] 新增 Tonemap Render Pass，用于线性颜色的转换。
 
