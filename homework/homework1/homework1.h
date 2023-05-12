@@ -84,16 +84,11 @@ public:
 		Node* parent;
 		std::vector<Node*> children;
 		Mesh mesh;
-
-		/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
-		uint32_t index; 
-		glm::vec3 translation{};
-		glm::vec3 scale{ 1.0f };
-		glm::quat rotation{};
 		glm::mat4 matrix;
-		glm::mat4 getLocalMatrix();
+		/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
+		uint32_t index;
 
-		~Node()
+		~Node() noexcept
 		{
 			for (auto& child : children)
 			{
@@ -162,6 +157,7 @@ public:
 	std::vector<Node*> nodes;
 	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
 	std::vector<Animation> animations;
+	std::vector<Node*> linearMeshNodes;
 
 	uint32_t activeAnimation = 0;
 
@@ -174,7 +170,7 @@ public:
 	void loadTextures(tinygltf::Model& input);
 	void loadMaterials(tinygltf::Model& input);
 	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent,
-	              std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
+	              uint32_t nodeIndex, std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer);
 
 	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
 
@@ -183,6 +179,9 @@ public:
 	Node* findNode(Node* parent, uint32_t index);
 	Node* nodeFromIndex(uint32_t index);
 	glm::mat4 getNodeMatrix(VulkanglTFModel::Node* node);
+
+	void prepareMeshUniformBuffers(vks::VulkanDevice* vkDevice);
+	void updateMeshUniformBuffers();
 
 	void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VulkanglTFModel::Node* node);
 	void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
@@ -232,9 +231,8 @@ public:
 	void loadglTFFile(std::string filename);
 	void loadAssets();
 	void prepareUniformBuffers();
-	void setupDescriptors();
-	void setupNodeDescriptorSet(VulkanglTFModel::Node* node);
 	void updateUniformBuffers();
+	void setupDescriptors();
 	void preparePipelines();
 	/**
 	 * @brief Prepares all Vulkan resources and functions required to run the sample

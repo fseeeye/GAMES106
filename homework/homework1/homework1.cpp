@@ -104,12 +104,14 @@ void VulkanglTFModel::loadMaterials(tinygltf::Model& input)
 }
 
 void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input,
-	VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer,
-	std::vector<VulkanglTFModel::Vertex>& vertexBuffer)
+                               VulkanglTFModel::Node* parent, uint32_t nodeIndex,
+                               std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer)
 {
 	VulkanglTFModel::Node* node = new VulkanglTFModel::Node{};
 	node->matrix = glm::mat4(1.0f);
 	node->parent = parent;
+	/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
+	node->index = nodeIndex;
 
 	// Get the local node matrix
 	// It's either made up from translation, rotation, scale or a 4x4 matrix
@@ -130,7 +132,7 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 	// Load node's children
 	if (inputNode.children.size() > 0) {
 		for (size_t i = 0; i < inputNode.children.size(); i++) {
-			loadNode(input.nodes[inputNode.children[i]], input, node, indexBuffer, vertexBuffer);
+			loadNode(input.nodes[inputNode.children[i]], input, node, inputNode.children[i], indexBuffer, vertexBuffer);
 		}
 	}
 
@@ -231,6 +233,12 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 	}
 	else {
 		nodes.push_back(node);
+	}
+
+	/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
+	if (!node->mesh.primitives.empty())
+	{
+		linearMeshNodes.push_back(node);
 	}
 }
 
@@ -355,26 +363,50 @@ VulkanglTFModel::Node* VulkanglTFModel::nodeFromIndex(uint32_t index)
 	return nodeFound;
 }
 
-/*
-	 Get a node's local matrix from the current translation, rotation and scale values
-	 These are calculated from the current animation an need to be calculated dynamically
- */
-glm::mat4 VulkanglTFModel::Node::getLocalMatrix()
-{
-	return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
-}
-
 // Traverse the node hierarchy to the top-most parent to get the local matrix of the given node
 glm::mat4 VulkanglTFModel::getNodeMatrix(VulkanglTFModel::Node* node)
 {
-	glm::mat4              nodeMatrix = node->getLocalMatrix();
-	VulkanglTFModel::Node* currentParent = node->parent;
+	glm::mat4 nodeMatrix = node->matrix;
+	Node* currentParent = node->parent;
 	while (currentParent)
 	{
-		nodeMatrix = currentParent->getLocalMatrix() * nodeMatrix;
+		nodeMatrix = currentParent->matrix * nodeMatrix;
 		currentParent = currentParent->parent;
 	}
 	return nodeMatrix;
+}
+
+void VulkanglTFModel::prepareMeshUniformBuffers(vks::VulkanDevice* vkDevice)
+{
+	/* HOMEWORK1 : 传递 glTF Node uniform */
+	for (auto& meshNode : linearMeshNodes)
+	{
+		if (!meshNode->mesh.primitives.empty())
+		{
+			// Vertex shader uniform buffer block for Descriptor set 2
+			VK_CHECK_RESULT(vkDevice->createBuffer(
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				&meshNode->mesh.uniformBuffer.buffer,
+				sizeof(meshNode->matrix)));
+
+			// Map persistent
+			VK_CHECK_RESULT(meshNode->mesh.uniformBuffer.buffer.map());
+		}
+	}
+}
+
+void VulkanglTFModel::updateMeshUniformBuffers()
+{
+	/* HOMEWORK1 : 传递 glTF Node uniform */
+	for (auto& meshNode : linearMeshNodes)
+	{
+		if (!meshNode->mesh.primitives.empty() && meshNode->mesh.uniformBuffer.buffer.mapped)
+		{
+			glm::mat4 nodeMatrix = getNodeMatrix(meshNode);
+			memcpy(meshNode->mesh.uniformBuffer.buffer.mapped, static_cast<const void*>(&nodeMatrix), sizeof(meshNode->matrix));
+		}
+	}
 }
 
 /*
@@ -388,17 +420,12 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 	/* HOMEWORK1 : 传递 glTF Node uniform */
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &node->mesh.uniformBuffer.descriptorSet, 0, nullptr);
 
-	if (node->mesh.primitives.size() > 0) {
-		// Pass the node's matrix via push constants
-		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = node->matrix;
-		VulkanglTFModel::Node* currentParent = node->parent;
-		while (currentParent) {
-			nodeMatrix = currentParent->matrix * nodeMatrix;
-			currentParent = currentParent->parent;
-		}
-		// Pass the final matrix to the vertex shader using push constants
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
+	if (!node->mesh.primitives.empty()) {
+		//// Pass the node's matrix via push constants
+		//// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
+		//glm::mat4 nodeMatrix = getNodeMatrix(node);
+		//// Pass the final matrix to the vertex shader using push constants
+		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
 		for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				// Get the texture index for this primitive
@@ -408,10 +435,6 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
 			}
 		}
-	}
-
-	for (auto& child : node->children) {
-		drawNode(commandBuffer, pipelineLayout, child);
 	}
 }
 
@@ -423,7 +446,7 @@ void VulkanglTFModel::draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipel
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertices.buffer, offsets);
 	vkCmdBindIndexBuffer(commandBuffer, indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 	// Render all nodes at top-level
-	for (auto& node : nodes) {
+	for (auto& node : linearMeshNodes) {
 		drawNode(commandBuffer, pipelineLayout, node);
 	}
 }
@@ -546,9 +569,9 @@ void VulkanExample::loadglTFFile(std::string filename)
 		const tinygltf::Scene& scene = glTFInput.scenes[0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {
 			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-			glTFModel.loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
+			glTFModel.loadNode(node, glTFInput, nullptr, scene.nodes[i], indexBuffer, vertexBuffer);
 		}
-		/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
+		/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
 		glTFModel.loadAnimations(glTFInput);
 	}
 	else {
@@ -640,13 +663,14 @@ void VulkanExample::setupDescriptors()
 		This sample uses separate descriptor sets (and layouts) for the matrices and materials (textures)
 	*/
 
+	/* HOMEWORK1 : 传递 glTF Node uniform */
 	std::vector<VkDescriptorPoolSize> poolSizes = {
-		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1),
+		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 + static_cast<uint32_t>(glTFModel.linearMeshNodes.size())),
 		// One combined image sampler per model image/texture
 		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(glTFModel.images.size())),
 	};
 	// One set for matrices and one per model image/texture
-	const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size()) + 1;
+	const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size()) + static_cast<uint32_t>(glTFModel.linearMeshNodes.size()) + 1;
 	VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, maxSetCount);
 	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 	
@@ -688,9 +712,18 @@ void VulkanExample::setupDescriptors()
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.nodes))
 
 		// Descriptor Sets for glTF Node data
-		for (auto& node : glTFModel.nodes)
+		for (auto& meshNode : glTFModel.linearMeshNodes)
 		{
-			setupNodeDescriptorSet(node);
+			if (!meshNode->mesh.primitives.empty())
+			{
+				const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodes, 1);
+				VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &meshNode->mesh.uniformBuffer.descriptorSet));
+				//VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->mesh.uniformBuffer.descriptorSet));
+				VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(
+					meshNode->mesh.uniformBuffer.descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0,
+					&meshNode->mesh.uniformBuffer.buffer.descriptor);
+				vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+			}
 		}
 	}
 
@@ -699,29 +732,13 @@ void VulkanExample::setupDescriptors()
 	VkPipelineLayoutCreateInfo pipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(
 		setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
 
-	// Push constants to push the local matrices of a primitive to the vertex shader
-	VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), 0);
-	// Push constant ranges are part of the pipeline layout
-	pipelineLayoutCI.pushConstantRangeCount = 1;
-	pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
+	//// Push constants to push the local matrices of a primitive to the vertex shader
+	//VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), 0);
+	//// Push constant ranges are part of the pipeline layout
+	//pipelineLayoutCI.pushConstantRangeCount = 1;
+	//pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
 
 	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout))
-}
-
-void VulkanExample::setupNodeDescriptorSet(VulkanglTFModel::Node* node)
-{
-	if (!node->mesh.primitives.empty())
-	{
-		const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodes, 1);
-		// TODO: fixme
-		VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->mesh.uniformBuffer.descriptorSet));
-		VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->mesh.uniformBuffer.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &node->mesh.uniformBuffer.buffer.descriptor);
-		vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-	}
-
-	for (auto& child : node->children) {
-		setupNodeDescriptorSet(child);
-	}
 }
 
 /**
@@ -740,19 +757,7 @@ void VulkanExample::prepareUniformBuffers()
 	VK_CHECK_RESULT(shaderData.buffer.map());
 
 	/* HOMEWORK1 : 传递 glTF Node uniform */
-	// Vertex shader uniform buffer block for Descriptor set 2
-	// TODO: traverse all nodes
-	for (auto& node : glTFModel.nodes)
-	{
-		VK_CHECK_RESULT(vulkanDevice->createBuffer(
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&node->mesh.uniformBuffer.buffer,
-			sizeof(node->matrix)));
-
-		// Map persistent
-		VK_CHECK_RESULT(node->mesh.uniformBuffer.buffer.map());
-	}
+	glTFModel.prepareMeshUniformBuffers(vulkanDevice);
 
 	updateUniformBuffers();
 }
@@ -765,11 +770,7 @@ void VulkanExample::updateUniformBuffers()
 	memcpy(shaderData.buffer.mapped, &shaderData.values, sizeof(shaderData.values));
 
 	/* HOMEWORK1 : 传递 glTF Node uniform */
-	// TODO: traverse all nodes
-	for (const auto& node : glTFModel.nodes)
-	{
-		memcpy(node->mesh.uniformBuffer.buffer.mapped, static_cast<const void*>(&node->matrix), sizeof(node->matrix));
-	}
+	glTFModel.updateMeshUniformBuffers();
 }
 
 void VulkanExample::preparePipelines()
@@ -848,6 +849,7 @@ void VulkanExample::render()
 	if (camera.updated) {
 		updateUniformBuffers();
 	}
+	// TODO: update animation
 }
 
 void VulkanExample::viewChanged()

@@ -17,9 +17,9 @@ layout (set = 2, binding = 0) uniform UBONode {
 	mat4 matrix;
 } node;
 
-layout(push_constant) uniform PushConsts {
-	mat4 model;
-} primitive;
+// layout(push_constant) uniform PushConsts {
+//	mat4 model;
+// } primitive;
 
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
@@ -33,12 +33,12 @@ void main()
 	outColor = inColor;
 	outUV = inUV;
 
-	vec4 locPos = primitive.model * node.matrix * vec4(inPos.xyz, 1.0);
+	vec4 locPos = node.matrix * vec4(inPos.xyz, 1.0);
 	gl_Position = uboScene.projection * uboScene.view * locPos;
 	
 	vec4 pos = uboScene.view * vec4(inPos, 1.0);
 	outNormal = mat3(uboScene.view) * inNormal;
 	vec3 lPos = mat3(uboScene.view) * uboScene.lightPos.xyz;
 	outLightVec = uboScene.lightPos.xyz - pos.xyz;
-	outViewVec = uboScene.viewPos.xyz - pos.xyz;	
+	outViewVec = uboScene.viewPos.xyz - pos.xyz;
 }
