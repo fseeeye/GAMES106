@@ -16,6 +16,15 @@
   */
 
 /*
+   Get a node's local matrix from the current translation, rotation and scale values
+   These are calculated from the current animation an need to be calculated dynamically
+*/
+glm::mat4 VulkanglTFModel::Node::getLocalMatrix()
+{
+	return glm::translate(glm::mat4(1.0f), translation) * glm::mat4(rotation) * glm::scale(glm::mat4(1.0f), scale) * matrix;
+}
+
+/*
 	Release all Vulkan resources acquired for the model
 */
 VulkanglTFModel::~VulkanglTFModel()
@@ -116,16 +125,20 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 	// Get the local node matrix
 	// It's either made up from translation, rotation, scale or a 4x4 matrix
 	if (inputNode.translation.size() == 3) {
-		node->matrix = glm::translate(node->matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+		//node->matrix = glm::translate(node->matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+		node->translation = glm::make_vec3(inputNode.translation.data());
 	}
 	if (inputNode.rotation.size() == 4) {
-		glm::quat q = glm::make_quat(inputNode.rotation.data());
-		node->matrix *= glm::mat4(q);
+		//glm::quat q = glm::make_quat(inputNode.rotation.data());
+		//node->matrix *= glm::mat4(q);
+		node->rotation = glm::make_quat(inputNode.rotation.data());
 	}
 	if (inputNode.scale.size() == 3) {
-		node->matrix = glm::scale(node->matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+		//node->matrix = glm::scale(node->matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+		node->scale = glm::make_vec3(inputNode.scale.data());
 	}
 	if (inputNode.matrix.size() == 16) {
+		//node->matrix = glm::make_mat4x4(inputNode.matrix.data());
 		node->matrix = glm::make_mat4x4(inputNode.matrix.data());
 	};
 
@@ -242,6 +255,59 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 	}
 }
 
+/*
+	glTF: Helper functions for locating glTF nodes
+*/
+
+VulkanglTFModel::Node* VulkanglTFModel::findNode(Node* parent, uint32_t index)
+{
+	Node* nodeFound = nullptr;
+	if (parent->index == index)
+	{
+		return parent;
+	}
+	for (auto& child : parent->children)
+	{
+		nodeFound = findNode(child, index);
+		if (nodeFound)
+		{
+			break;
+		}
+	}
+	return nodeFound;
+}
+
+VulkanglTFModel::Node* VulkanglTFModel::nodeFromIndex(uint32_t index)
+{
+	Node* nodeFound = nullptr;
+	for (auto& node : nodes)
+	{
+		nodeFound = findNode(node, index);
+		if (nodeFound)
+		{
+			break;
+		}
+	}
+	return nodeFound;
+}
+
+// Traverse the node hierarchy to the top-most parent to get the local matrix of the given node
+glm::mat4 VulkanglTFModel::getNodeMatrix(VulkanglTFModel::Node* node)
+{
+	glm::mat4 nodeMatrix = node->getLocalMatrix();
+	Node* currentParent = node->parent;
+	while (currentParent)
+	{
+		nodeMatrix = currentParent->getLocalMatrix() * nodeMatrix;
+		currentParent = currentParent->parent;
+	}
+	return nodeMatrix;
+}
+
+/*
+	glTF: animation functions
+*/
+
 void VulkanglTFModel::loadAnimations(tinygltf::Model& input)
 {
 	animations.resize(input.animations.size());
@@ -329,53 +395,6 @@ void VulkanglTFModel::loadAnimations(tinygltf::Model& input)
 	}
 }
 
-// Helper functions for locating glTF nodes
-
-VulkanglTFModel::Node* VulkanglTFModel::findNode(Node* parent, uint32_t index)
-{
-	Node* nodeFound = nullptr;
-	if (parent->index == index)
-	{
-		return parent;
-	}
-	for (auto& child : parent->children)
-	{
-		nodeFound = findNode(child, index);
-		if (nodeFound)
-		{
-			break;
-		}
-	}
-	return nodeFound;
-}
-
-VulkanglTFModel::Node* VulkanglTFModel::nodeFromIndex(uint32_t index)
-{
-	Node* nodeFound = nullptr;
-	for (auto& node : nodes)
-	{
-		nodeFound = findNode(node, index);
-		if (nodeFound)
-		{
-			break;
-		}
-	}
-	return nodeFound;
-}
-
-// Traverse the node hierarchy to the top-most parent to get the local matrix of the given node
-glm::mat4 VulkanglTFModel::getNodeMatrix(VulkanglTFModel::Node* node)
-{
-	glm::mat4 nodeMatrix = node->matrix;
-	Node* currentParent = node->parent;
-	while (currentParent)
-	{
-		nodeMatrix = currentParent->matrix * nodeMatrix;
-		currentParent = currentParent->parent;
-	}
-	return nodeMatrix;
-}
-
 void VulkanglTFModel::prepareMeshUniformBuffers(vks::VulkanDevice* vkDevice)
 {
 	/* HOMEWORK1 : 传递 glTF Node uniform */
@@ -388,7 +407,7 @@ void VulkanglTFModel::prepareMeshUniformBuffers(vks::VulkanDevice* vkDevice)
 				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				&meshNode->mesh.uniformBuffer.buffer,
-				sizeof(meshNode->matrix)));
+				sizeof(glm::mat4)));
 
 			// Map persistent
 			VK_CHECK_RESULT(meshNode->mesh.uniformBuffer.buffer.map());
@@ -404,9 +423,70 @@ void VulkanglTFModel::updateMeshUniformBuffers()
 		if (!meshNode->mesh.primitives.empty() && meshNode->mesh.uniformBuffer.buffer.mapped)
 		{
 			glm::mat4 nodeMatrix = getNodeMatrix(meshNode);
-			memcpy(meshNode->mesh.uniformBuffer.buffer.mapped, static_cast<const void*>(&nodeMatrix), sizeof(meshNode->matrix));
+			memcpy(meshNode->mesh.uniformBuffer.buffer.mapped, static_cast<const void*>(&nodeMatrix), sizeof(glm::mat4));
 		}
 	}
+}
+
+// POI: Update the current animation
+void VulkanglTFModel::updateAnimation(float deltaTime)
+{
+	if (activeAnimation > static_cast<uint32_t>(animations.size()) - 1)
+	{
+		std::cout << "No animation with index " << activeAnimation << std::endl;
+		return;
+	}
+	Animation& animation = animations[activeAnimation];
+	animation.currentTime += deltaTime;
+	if (animation.currentTime > animation.end)
+	{
+		animation.currentTime -= animation.end;
+	}
+
+	for (auto& channel : animation.channels)
+	{
+		AnimationSampler& sampler = animation.samplers[channel.samplerIndex];
+		for (size_t i = 0; i < sampler.inputs.size() - 1; i++)
+		{
+			if (sampler.interpolation != "LINEAR")
+			{
+				std::cout << "This sample only supports linear interpolations\n";
+				continue;
+			}
+
+			// Get the input keyframe values for the current time stamp
+			if ((animation.currentTime >= sampler.inputs[i]) && (animation.currentTime <= sampler.inputs[i + 1]))
+			{
+				float a = (animation.currentTime - sampler.inputs[i]) / (sampler.inputs[i + 1] - sampler.inputs[i]);
+				if (channel.path == "translation")
+				{
+					channel.node->translation = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
+				}
+				else if (channel.path == "rotation")
+				{
+					glm::quat q1;
+					q1.x = sampler.outputsVec4[i].x;
+					q1.y = sampler.outputsVec4[i].y;
+					q1.z = sampler.outputsVec4[i].z;
+					q1.w = sampler.outputsVec4[i].w;
+
+					glm::quat q2;
+					q2.x = sampler.outputsVec4[i + 1].x;
+					q2.y = sampler.outputsVec4[i + 1].y;
+					q2.z = sampler.outputsVec4[i + 1].z;
+					q2.w = sampler.outputsVec4[i + 1].w;
+
+					channel.node->rotation = glm::normalize(glm::slerp(q1, q2, a));
+				}
+				else if (channel.path == "scale")
+				{
+					channel.node->scale = glm::mix(sampler.outputsVec4[i], sampler.outputsVec4[i + 1], a);
+				}
+			}
+		}
+	}
+
+	updateMeshUniformBuffers();
 }
 
 /*
@@ -849,7 +929,12 @@ void VulkanExample::render()
 	if (camera.updated) {
 		updateUniformBuffers();
 	}
-	// TODO: update animation
+	/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
+	// Advance animation
+	if (!paused)
+	{
+		glTFModel.updateAnimation(frameTimer);
+	}
 }
 
 void VulkanExample::viewChanged()

@@ -87,6 +87,10 @@ public:
 		glm::mat4 matrix;
 		/* HOMEWORK1 : 载入 GLTF 载入动画数据 */
 		uint32_t index;
+		glm::vec3 translation{};
+		glm::vec3 scale{ 1.0f };
+		glm::quat rotation{};
+		glm::mat4 getLocalMatrix();
 
 		~Node() noexcept
 		{
@@ -174,14 +178,14 @@ public:
 
 	/* HOMEWORK1 : 载入 GLTF 载入骨骼和动画数据 */
 
-	void loadAnimations(tinygltf::Model& input);
-
 	Node* findNode(Node* parent, uint32_t index);
 	Node* nodeFromIndex(uint32_t index);
 	glm::mat4 getNodeMatrix(VulkanglTFModel::Node* node);
 
+	void loadAnimations(tinygltf::Model& input);
 	void prepareMeshUniformBuffers(vks::VulkanDevice* vkDevice);
 	void updateMeshUniformBuffers();
+	void updateAnimation(float deltaTime);
 
 	void drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VulkanglTFModel::Node* node);
 	void draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout);
