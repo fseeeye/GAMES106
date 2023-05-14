@@ -101,14 +101,21 @@ void VulkanglTFModel::loadMaterials(tinygltf::Model& input)
 	for (size_t i = 0; i < input.materials.size(); i++) {
 		// We only read the most basic properties required for our sample
 		tinygltf::Material glTFMaterial = input.materials[i];
-		// Get the base color factor
-		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
-			materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
-		}
-		// Get base color texture index
-		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
-			materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
-		}
+		// // Get the base color factor
+		// if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
+		// 	materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
+		// }
+		// // Get base color texture index
+		// if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
+		// 	materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
+		// }
+
+		/* HOMEWORK1 : 读取材质 */
+		materials[i].pbrMetallicRoughness = glTFMaterial.pbrMetallicRoughness;
+		materials[i].normalTexture = glTFMaterial.normalTexture;
+		materials[i].occlusionTexture = glTFMaterial.occlusionTexture;
+		materials[i].emissiveFactor = glTFMaterial.emissiveFactor;
+		materials[i].emissiveTexture = glTFMaterial.emissiveTexture;
 	}
 }
 
@@ -509,7 +516,8 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 		for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				// Get the texture index for this primitive
-				VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].baseColorTextureIndex];
+				// TODO: check the index num
+				VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].pbrMetallicRoughness.baseColorTexture.index];
 				// Bind the descriptor for the current primitive's texture
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &images[texture.imageIndex].descriptorSet, 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);

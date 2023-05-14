@@ -16,6 +16,8 @@
 
 #include "vulkanexamplebase.h"
 
+#include <optional>
+
 #define ENABLE_VALIDATION false
 
 // Contains everything required to render a glTF model in Vulkan
@@ -104,8 +106,16 @@ public:
 	// A glTF material stores information in e.g. the texture that is attached to it and colors
 	struct Material
 	{
-		glm::vec4 baseColorFactor = glm::vec4(1.0f);
-		uint32_t baseColorTextureIndex;
+		// glm::vec4 baseColorFactor = glm::vec4(1.0f);
+		// uint32_t baseColorTextureIndex;=
+
+		/* HOMEWORK1 : 读取材质 */
+		tinygltf::PbrMetallicRoughness pbrMetallicRoughness;
+
+		tinygltf::NormalTextureInfo normalTexture;
+		tinygltf::OcclusionTextureInfo occlusionTexture;
+		std::vector<double> emissiveFactor;  // length 3. default [0, 0, 0]
+		tinygltf::TextureInfo emissiveTexture;
 	};
 
 	// Contains the texture for a single glTF image

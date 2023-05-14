@@ -39,7 +39,7 @@
 	- [X] 逐帧更新动画顶点数据至 node->mesh 的 Uniform Buffer。
 	- [X] Vertex Shader 中读取并计算顶点位置。
 - [ ] PBR
-	- [ ] 读取纹理贴图(Texture mapping)：法线、自发光、PBR。
+	- [ ] 读取材质：PBR参数、法线、自发光、遮挡、等。
 	- [ ] Fragment Shader 实现 PBR 的直接光照和间接光照。
 - [ ] 新增 Tonemap Render Pass，用于线性颜色的转换。
 

@@ -30,7 +30,7 @@ layout (location = 4) out vec3 outLightVec;
 void main() 
 {
 	outNormal = inNormal;
-	outColor = inColor;
+	outColor = inColor; // 1.0
 	outUV = inUV;
 
 	vec4 locPos = node.matrix * vec4(inPos.xyz, 1.0);
