@@ -111,20 +111,21 @@ public:
 
 		/* HOMEWORK1 : 读取材质 */
 		tinygltf::PbrMetallicRoughness pbrMetallicRoughness;
-
 		tinygltf::NormalTextureInfo normalTexture;
 		tinygltf::OcclusionTextureInfo occlusionTexture;
 		std::vector<double> emissiveFactor;  // length 3. default [0, 0, 0]
 		tinygltf::TextureInfo emissiveTexture;
+
+		// A descriptor set that's used to access all textures of this material from the fragment shader
+		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 	};
 
 	// Contains the texture for a single glTF image
 	// Images may be reused by texture objects and are as such separated
+	// TODO: remove Image
 	struct Image
 	{
 		vks::Texture2D texture;
-		// We also store (and create) a descriptor set that's used to access this texture from the fragment shader
-		VkDescriptorSet descriptorSet;
 	};
 
 	// A glTF texture stores a reference to the image and a sampler

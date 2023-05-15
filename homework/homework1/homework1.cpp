@@ -43,6 +43,8 @@ VulkanglTFModel::~VulkanglTFModel()
 		vkDestroySampler(vulkanDevice->logicalDevice, image.texture.sampler, nullptr);
 		vkFreeMemory(vulkanDevice->logicalDevice, image.texture.deviceMemory, nullptr);
 	}
+
+	// TODO: destroy
 }
 
 /*
@@ -54,7 +56,7 @@ VulkanglTFModel::~VulkanglTFModel()
 void VulkanglTFModel::loadImages(tinygltf::Model& input)
 {
 	// Images can be stored inside the glTF (which is the case for the sample model), so instead of directly
-		// loading them from disk, we fetch them from the glTF loader and upload the buffers
+	// loading them from disk, we fetch them from the glTF loader and upload the buffers
 	images.resize(input.images.size());
 	for (size_t i = 0; i < input.images.size(); i++) {
 		tinygltf::Image& glTFImage = input.images[i];
@@ -516,7 +518,7 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 		for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
 				// Get the texture index for this primitive
-				// TODO: check the index num
+				// TODO: Bind PBR material descriptor set of this primitive.
 				VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].pbrMetallicRoughness.baseColorTexture.index];
 				// Bind the descriptor for the current primitive's texture
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &images[texture.imageIndex].descriptorSet, 0, nullptr);
@@ -565,6 +567,7 @@ VulkanExample::~VulkanExample()
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.matrices, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.textures, nullptr);
+	// TODO: destroy
 
 	shaderData.buffer.destroy();
 }
@@ -763,7 +766,7 @@ void VulkanExample::setupDescriptors()
 	VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 	
 	{
-		// Descriptor set 0 layout : passing scene matrices
+		// Descriptor set layout 1 : passing scene matrices
 		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.matrices));
@@ -776,24 +779,38 @@ void VulkanExample::setupDescriptors()
 	}
 
 	{
-		// Descriptor set 1 layout : passing material textures
-		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
-		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
+		// Descriptor set layout 1 : passing PBR material textures
+		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {};
+		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0));
+		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1));
+		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2));
+		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3));
+		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4));
+		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings.data(), 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.textures));
 
 		// Descriptor Sets : material textures
-		for (auto& image : glTFModel.images) {
+		for (auto& material : glTFModel.materials) {
+			// TODO: create descriptor set for textures of PBR material and set descriptors to it.
+			/* HOMEWORK1 : 传递 PBR 材质贴图 */
+			// Allocate Descriptor Set
 			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.textures, 1);
-			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &image.descriptorSet))
-			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(image.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &image.texture.descriptor);
+			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &material.descriptorSet));
+
+			// Prepare descriptors
+			std::vector<VkDescriptorImageInfo> textureDescriptors = {
+				material.pbrMetallicRoughness.baseColorTexture.index > -1 ? glTFModel.images[glTFModel.textures[material.pbrMetallicRoughness.baseColorTexture.index].imageIndex].texture.descriptor : ;
+			};
+
+			// Update all descriptors of this set
+			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(material.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &image.texture.descriptor);
 			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 		}
 	}
 
 	/* HOMEWORK1 : 传递 glTF Node uniform */
 	{
-		// Descriptor set 2 layout : passing mesh data of glTF Node 
+		// Descriptor set layout 2 : passing mesh data of glTF Node 
 		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(
 			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);

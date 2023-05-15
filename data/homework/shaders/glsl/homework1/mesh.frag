@@ -1,6 +1,10 @@
 #version 450
 
-layout (set = 1, binding = 0) uniform sampler2D samplerColorMap;
+layout (set = 1, binding = 0) uniform sampler2D colorTextureMap;
+layout (set = 1, binding = 1) uniform sampler2D metallicRoughnessTextureMap;
+layout (set = 1, binding = 2) uniform sampler2D normalTextureMap;
+layout (set = 1, binding = 3) uniform sampler2D occlusionTextureMap;
+layout (set = 1, binding = 4) uniform sampler2D emissiveTextureMap;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
