@@ -113,11 +113,30 @@ void VulkanglTFModel::loadMaterials(tinygltf::Model& input)
 		// }
 
 		/* HOMEWORK1 : 读取材质 */
-		materials[i].pbrMetallicRoughness = glTFMaterial.pbrMetallicRoughness;
-		materials[i].normalTexture = glTFMaterial.normalTexture;
-		materials[i].occlusionTexture = glTFMaterial.occlusionTexture;
-		materials[i].emissiveFactor = glTFMaterial.emissiveFactor;
-		materials[i].emissiveTexture = glTFMaterial.emissiveTexture;
+		materials[i].baseColorFactor = {
+			glTFMaterial.pbrMetallicRoughness.baseColorFactor[0],
+			glTFMaterial.pbrMetallicRoughness.baseColorFactor[1],
+			glTFMaterial.pbrMetallicRoughness.baseColorFactor[2],
+			glTFMaterial.pbrMetallicRoughness.baseColorFactor[3],
+		};
+		materials[i].baseColorImageIndex = textures[glTFMaterial.pbrMetallicRoughness.baseColorTexture.index].imageIndex;
+		materials[i].metallicFactor = glTFMaterial.pbrMetallicRoughness.metallicFactor;
+		materials[i].roughnessFactor = glTFMaterial.pbrMetallicRoughness.roughnessFactor;
+		materials[i].metallicRoughnessImageIndex = textures[glTFMaterial.pbrMetallicRoughness.metallicRoughnessTexture.index].imageIndex;
+		materials[i].normalImageIndex = textures[glTFMaterial.normalTexture.index].imageIndex;
+		if (glTFMaterial.occlusionTexture.index > -1)
+		{
+			materials[i].occlusionImageIndex = textures[glTFMaterial.occlusionTexture.index].imageIndex;
+		}
+		materials[i].emissiveFactor = {
+			glTFMaterial.emissiveFactor[0],
+			glTFMaterial.emissiveFactor[1],
+			glTFMaterial.emissiveFactor[2]
+		};
+		if (glTFMaterial.emissiveTexture.index > -1)
+		{
+			materials[i].emissiveImageIndex = textures[glTFMaterial.emissiveTexture.index].imageIndex;
+		}
 	}
 }
 
@@ -519,9 +538,9 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 			if (primitive.indexCount > 0) {
 				// Get the texture index for this primitive
 				// TODO: Bind PBR material descriptor set of this primitive.
-				VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].pbrMetallicRoughness.baseColorTexture.index];
+				//VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].pbrMetallicRoughness.baseColorTexture.index];
 				// Bind the descriptor for the current primitive's texture
-				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &images[texture.imageIndex].descriptorSet, 0, nullptr);
+				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &materials[primitive.materialIndex].descriptorSet, 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
 			}
 		}
@@ -567,7 +586,7 @@ VulkanExample::~VulkanExample()
 	vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.matrices, nullptr);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.textures, nullptr);
-	// TODO: destroy
+	// TODO: destroy descriptorset layout
 
 	shaderData.buffer.destroy();
 }
@@ -655,8 +674,8 @@ void VulkanExample::loadglTFFile(std::string filename)
 
 	if (fileLoaded) {
 		glTFModel.loadImages(glTFInput);
-		glTFModel.loadMaterials(glTFInput);
 		glTFModel.loadTextures(glTFInput);
+		glTFModel.loadMaterials(glTFInput);
 		const tinygltf::Scene& scene = glTFInput.scenes[0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {
 			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
@@ -746,6 +765,17 @@ void VulkanExample::loadglTFFile(std::string filename)
 void VulkanExample::loadAssets()
 {
 	loadglTFFile(getAssetPath() + "buster_drone/busterDrone.gltf");
+
+	// Create default texture assets
+	constexpr unsigned long long width = 2048;
+	constexpr unsigned long long height = 2048;
+	std::vector<unsigned char> buffer(width * height * 4, 1);
+	const auto bufferSize = static_cast<VkDeviceSize>(buffer.size());
+
+	defaultOcclusionTexture.fromBuffer(buffer.data(), bufferSize, VK_FORMAT_R8G8B8A8_UNORM, width, height, vulkanDevice, queue);
+
+	buffer.resize(width * height * 4, 0);
+	defaultEmissiveTexture.fromBuffer(buffer.data(), bufferSize, VK_FORMAT_R8G8B8A8_UNORM, width, height, vulkanDevice, queue);
 }
 
 void VulkanExample::setupDescriptors()
@@ -758,7 +788,7 @@ void VulkanExample::setupDescriptors()
 	std::vector<VkDescriptorPoolSize> poolSizes = {
 		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 + static_cast<uint32_t>(glTFModel.linearMeshNodes.size())),
 		// One combined image sampler per model image/texture
-		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(glTFModel.images.size())),
+		vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(glTFModel.materials.size() * 5)),
 	};
 	// One set for matrices and one per model image/texture
 	const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size()) + static_cast<uint32_t>(glTFModel.linearMeshNodes.size()) + 1;
@@ -786,7 +816,7 @@ void VulkanExample::setupDescriptors()
 		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2));
 		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3));
 		setLayoutBindings.emplace_back(vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4));
-		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings.data(), 1);
+		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(setLayoutBindings);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.textures));
 
 		// Descriptor Sets : material textures
@@ -798,13 +828,35 @@ void VulkanExample::setupDescriptors()
 			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &material.descriptorSet));
 
 			// Prepare descriptors
-			std::vector<VkDescriptorImageInfo> textureDescriptors = {
-				material.pbrMetallicRoughness.baseColorTexture.index > -1 ? glTFModel.images[glTFModel.textures[material.pbrMetallicRoughness.baseColorTexture.index].imageIndex].texture.descriptor : ;
+			if (material.baseColorImageIndex <=  -1)
+			{
+				throw std::runtime_error("Cannot load image of Base Color Texture.");
+			}
+			if (material.metallicRoughnessImageIndex <= -1)
+			{
+				throw std::runtime_error("Cannot load image of Metallic Roughness Texture.");
+			}
+			if (material.normalImageIndex <= -1)
+			{
+				throw std::runtime_error("Cannot load image of Normal Texture.");
+			}
+			std::array<VkDescriptorImageInfo*, 5> textureDescriptors = {
+				&glTFModel.images[material.baseColorImageIndex].texture.descriptor,
+				&glTFModel.images[material.metallicRoughnessImageIndex].texture.descriptor,
+				&glTFModel.images[material.normalImageIndex].texture.descriptor,
+				material.occlusionImageIndex > -1 ? &glTFModel.images[material.occlusionImageIndex].texture.descriptor : &defaultOcclusionTexture.descriptor,
+				material.emissiveImageIndex > -1 ? &glTFModel.images[material.emissiveImageIndex].texture.descriptor : &defaultEmissiveTexture.descriptor,
 			};
 
+			// Create VkWriteDescriptorSets
+			std::array<VkWriteDescriptorSet, 5> writeDescriptorSets = {};
+			for (size_t i = 0; i < textureDescriptors.size(); i++)
+			{
+				writeDescriptorSets[i] = vks::initializers::writeDescriptorSet(material.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, i, textureDescriptors[i]);
+			}
+
 			// Update all descriptors of this set
-			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(material.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &image.texture.descriptor);
-			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
+			vkUpdateDescriptorSets(device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 		}
 	}
 
@@ -870,7 +922,7 @@ void VulkanExample::prepareUniformBuffers()
 void VulkanExample::updateUniformBuffers()
 {
 	shaderData.values.projection = camera.matrices.perspective;
-	shaderData.values.model = camera.matrices.view;
+	shaderData.values.view = camera.matrices.view;
 	shaderData.values.viewPos = camera.viewPos;
 	memcpy(shaderData.buffer.mapped, &shaderData.values, sizeof(shaderData.values));
 

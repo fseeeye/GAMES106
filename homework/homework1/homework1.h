@@ -110,13 +110,17 @@ public:
 		// uint32_t baseColorTextureIndex;=
 
 		/* HOMEWORK1 : 读取材质 */
-		tinygltf::PbrMetallicRoughness pbrMetallicRoughness;
-		tinygltf::NormalTextureInfo normalTexture;
-		tinygltf::OcclusionTextureInfo occlusionTexture;
-		std::vector<double> emissiveFactor;  // length 3. default [0, 0, 0]
-		tinygltf::TextureInfo emissiveTexture;
+		glm::vec4 baseColorFactor = glm::vec4(1.0f); // length 4. default [1,1,1,1]
+		int32_t baseColorImageIndex = -1;
+		double metallicFactor = 1.0;   // default 1
+		double roughnessFactor = 1.0;  // default 1
+		int32_t metallicRoughnessImageIndex = -1;
+		int32_t normalImageIndex = -1;
+		int32_t occlusionImageIndex = -1;
+		glm::vec3 emissiveFactor = glm::vec3(0.f);  // length 3. default [0, 0, 0]
+		int32_t emissiveImageIndex = -1;
 
-		// A descriptor set that's used to access all textures of this material from the fragment shader
+		// A descriptor set which is used to access all textures of this material from the fragment shader
 		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 	};
 
@@ -214,7 +218,7 @@ public:
 		vks::Buffer buffer;
 		struct Values {
 			glm::mat4 projection;
-			glm::mat4 model;
+			glm::mat4 view;
 			glm::vec4 lightPos = glm::vec4(5.0f, 5.0f, -5.0f, 1.0f);
 			glm::vec4 viewPos;
 		} values;
@@ -229,11 +233,17 @@ public:
 	VkDescriptorSet descriptorSet;
 
 	struct DescriptorSetLayouts {
+		// 场景相关的 Descriptor Set，包括：MV Matrix / Camera Pos / Light Pos
 		VkDescriptorSetLayout matrices;
+		// PBR 材质相关的 Descriptor Set
 		VkDescriptorSetLayout textures;
 		/* HOMEWORK1 : 传递 glTF Node uniform vars */
 		VkDescriptorSetLayout nodes;
 	} descriptorSetLayouts;
+
+	// 默认的纯色 Texture
+	vks::Texture2D defaultOcclusionTexture;
+	vks::Texture2D defaultEmissiveTexture;
 
 public:
 	VulkanExample();
