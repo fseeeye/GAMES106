@@ -177,6 +177,7 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 		}
 	}
 
+	// 读取 Vertex Buffer & Index Buffer 信息
 	// If the node contains mesh data, we load vertices and indices from the buffers
 	// In glTF this is done via accessors and buffer views
 	if (inputNode.mesh > -1) {
@@ -192,6 +193,7 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 				const float* positionBuffer = nullptr;
 				const float* normalsBuffer = nullptr;
 				const float* texCoordsBuffer = nullptr;
+				const float* tangentBuffer = nullptr;
 				size_t vertexCount = 0;
 
 				// Get buffer data for vertex positions
@@ -214,6 +216,13 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
+				/* HOMEWORK1 : 读取切线信息 */
+				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end())
+				{
+					const tinygltf::Accessor& tangentAccessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
+					const tinygltf::BufferView& tangentView = input.bufferViews[tangentAccessor.bufferView];
+					tangentBuffer = reinterpret_cast<const float*>(&(input.buffers[tangentView.buffer].data[tangentAccessor.byteOffset + tangentView.byteOffset]));
+				}
 
 				// Append data to model's vertex buffer
 				for (size_t v = 0; v < vertexCount; v++) {
@@ -222,6 +231,7 @@ void VulkanglTFModel::loadNode(const tinygltf::Node& inputNode, const tinygltf::
 					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
 					vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
 					vert.color = glm::vec3(1.0f);
+					vert.tangent = tangentBuffer ? glm::make_vec4(&tangentBuffer[v * 4]) : glm::vec4(0xff);
 					vertexBuffer.push_back(vert);
 				}
 			}
@@ -532,13 +542,18 @@ void VulkanglTFModel::drawNode(VkCommandBuffer commandBuffer, VkPipelineLayout p
 		//// Pass the node's matrix via push constants
 		//// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
 		//glm::mat4 nodeMatrix = getNodeMatrix(node);
-		//// Pass the final matrix to the vertex shader using push constants
-		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
+
 		for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 			if (primitive.indexCount > 0) {
-				// Get the texture index for this primitive
-				// TODO: Bind PBR material descriptor set of this primitive.
-				//VulkanglTFModel::Texture texture = textures[materials[primitive.materialIndex].pbrMetallicRoughness.baseColorTexture.index];
+				// Pass PBR material attributes to the vertex shader using push constants
+				PushConstBlock pushConstBlock = {};
+				pushConstBlock.baseColorFactor = materials[primitive.materialIndex].baseColorFactor;
+				pushConstBlock.emissiveFactor = materials[primitive.materialIndex].emissiveFactor;
+				pushConstBlock.metallicFactor = static_cast<float>(materials[primitive.materialIndex].metallicFactor);
+				pushConstBlock.roughnessFactor = static_cast<float>(materials[primitive.materialIndex].roughnessFactor);
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstBlock),
+						&pushConstBlock);
+
 				// Bind the descriptor for the current primitive's texture
 				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &materials[primitive.materialIndex].descriptorSet, 0, nullptr);
 				vkCmdDrawIndexed(commandBuffer, primitive.indexCount, 1, primitive.firstIndex, 0, 0);
@@ -632,8 +647,10 @@ void VulkanExample::buildCommandBuffers()
 		vkCmdBindDescriptorSets(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 		vkCmdBindPipeline(drawCmdBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, wireframe ? pipelines.wireframe : pipelines.solid);
 
+		// 绘制各个 glTF Node
 		glTFModel.draw(drawCmdBuffers[i], pipelineLayout);
 
+		// 绘制 UI
 		drawUI(drawCmdBuffers[i]);
 
 		vkCmdEndRenderPass(drawCmdBuffers[i]);
@@ -769,9 +786,9 @@ void VulkanExample::loadAssets()
 	// Create default texture assets
 	constexpr unsigned long long width = 2048;
 	constexpr unsigned long long height = 2048;
-	std::vector<unsigned char> buffer(width * height * 4, 1);
-	const auto bufferSize = static_cast<VkDeviceSize>(buffer.size());
 
+	std::vector<unsigned char> buffer(width * height * 4, MAXBYTE);
+	const auto bufferSize = static_cast<VkDeviceSize>(buffer.size());
 	defaultOcclusionTexture.fromBuffer(buffer.data(), bufferSize, VK_FORMAT_R8G8B8A8_UNORM, width, height, vulkanDevice, queue);
 
 	buffer.resize(width * height * 4, 0);
@@ -797,7 +814,7 @@ void VulkanExample::setupDescriptors()
 	
 	{
 		// Descriptor set layout 1 : passing scene matrices
-		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+		VkDescriptorSetLayoutBinding setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCI = vks::initializers::descriptorSetLayoutCreateInfo(&setLayoutBinding, 1);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.matrices));
 
@@ -890,10 +907,10 @@ void VulkanExample::setupDescriptors()
 		setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
 
 	//// Push constants to push the local matrices of a primitive to the vertex shader
-	//VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), 0);
+	VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(VulkanglTFModel::PushConstBlock), 0);
 	//// Push constant ranges are part of the pipeline layout
-	//pipelineLayoutCI.pushConstantRangeCount = 1;
-	//pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
+	pipelineLayoutCI.pushConstantRangeCount = 1;
+	pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
 
 	VK_CHECK_RESULT(vkCreatePipelineLayout(device, &pipelineLayoutCI, nullptr, &pipelineLayout))
 }
@@ -948,10 +965,11 @@ void VulkanExample::preparePipelines()
 		vks::initializers::vertexInputBindingDescription(0, sizeof(VulkanglTFModel::Vertex), VK_VERTEX_INPUT_RATE_VERTEX),
 	};
 	const std::vector<VkVertexInputAttributeDescription> vertexInputAttributes = {
-		vks::initializers::vertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, pos)),	// Location 0: Position
-		vks::initializers::vertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, normal)),// Location 1: Normal
-		vks::initializers::vertexInputAttributeDescription(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, uv)),	// Location 2: Texture coordinates
-		vks::initializers::vertexInputAttributeDescription(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, color)),	// Location 3: Color
+		vks::initializers::vertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, pos)),        // Location 0: Position
+		vks::initializers::vertexInputAttributeDescription(0, 1, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, normal)),     // Location 1: Normal
+		vks::initializers::vertexInputAttributeDescription(0, 2, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, uv)),         // Location 2: Texture coordinates
+		vks::initializers::vertexInputAttributeDescription(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(VulkanglTFModel::Vertex, color)),      // Location 3: Color
+		vks::initializers::vertexInputAttributeDescription(0, 4, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(VulkanglTFModel::Vertex, tangent)), // Location 4: Tangent
 	};
 	VkPipelineVertexInputStateCreateInfo vertexInputStateCI = vks::initializers::pipelineVertexInputStateCreateInfo();
 	vertexInputStateCI.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindings.size());

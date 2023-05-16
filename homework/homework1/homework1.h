@@ -40,6 +40,7 @@ public:
 		glm::vec3 normal;
 		glm::vec2 uv;
 		glm::vec3 color;
+		glm::vec4 tangent;
 	};
 
 	// Single vertex buffer for all primitives
@@ -122,6 +123,16 @@ public:
 
 		// A descriptor set which is used to access all textures of this material from the fragment shader
 		VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	};
+
+	// 用于传递 PBR 材质贴图的 Factor 属性
+	struct PushConstBlock
+	{
+		// 部分 PBR 材质属性
+		glm::vec4 baseColorFactor = glm::vec4(1.0f); // length 4. default [1,1,1,1]
+		glm::vec3 emissiveFactor = glm::vec3(0.f);  // length 3. default [0, 0, 0]
+		float metallicFactor = 1.f;
+		float roughnessFactor = 1.f;
 	};
 
 	// Contains the texture for a single glTF image

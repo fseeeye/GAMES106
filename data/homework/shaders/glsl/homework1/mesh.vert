@@ -3,7 +3,8 @@
 layout (location = 0) in vec3 inPos;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV;
-layout (location = 3) in vec3 inColor;
+layout (location = 3) in vec3 inColor; // 1.0
+layout (location = 4) in vec4 inTangent;
 
 layout (set = 0, binding = 0) uniform UBOScene
 {
@@ -26,6 +27,7 @@ layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
 layout (location = 3) out vec3 outViewVec;
 layout (location = 4) out vec3 outLightVec;
+layout (location = 5) out vec4 outTangent;
 
 void main() 
 {
@@ -36,9 +38,10 @@ void main()
 	vec4 locPos = node.matrix * vec4(inPos.xyz, 1.0);
 	gl_Position = uboScene.projection * uboScene.view * locPos;
 	
-	vec4 pos = uboScene.view * vec4(inPos, 1.0);
+	// vec4 pos = uboScene.view * vec4(inPos, 1.0);
 	outNormal = mat3(uboScene.view) * inNormal;
-	vec3 lPos = mat3(uboScene.view) * uboScene.lightPos.xyz;
-	outLightVec = uboScene.lightPos.xyz - pos.xyz;
-	outViewVec = uboScene.viewPos.xyz - pos.xyz;
+	// vec3 lPos = mat3(uboScene.view) * uboScene.lightPos.xyz;
+	outLightVec = uboScene.lightPos.xyz - locPos.xyz;
+	outViewVec = uboScene.viewPos.xyz - locPos.xyz;
+	outTangent = inTangent;
 }
